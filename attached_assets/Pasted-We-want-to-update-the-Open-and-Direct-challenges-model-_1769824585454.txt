@@ -1,0 +1,29 @@
+We want to update the Open and Direct challenges model:
+
+Previous/current: users have to create challenges onchain, accept onchain and admin settles and send payouts to the winner.
+
+New model: users will create and accept challenges offchain (while creating, he can pick what form of settlement:Voting onchain OR UMA), goes to escrow 
+ (events only get logged onchain) then in the chat room, there will be buttons, countdown and when both parties click the vote for the answer to the challenge, payout activates and the winner gets the payout from the escrow. In this model, admin is only a spectator and dispute manager. Please note: voting is onchain which will carry the name and details of the challenge onchain.
+Don’t forget : in the chat (just like p2p trade on Binance or Bybit). challenge calendar/date for the countdown, how much is in escrow, one vote cannot release, both parties must submit proof the outcome happened (since Open and Direct challenges will be 95% subjective) there must be verifiable proof from the players- on the admin side, he can read the chats to use it to settle disputes, make sure the player/opponent releases payment when vote has now been clicked by the Creator/opponent. 
+Let’s be clear on escrow vote releases:
+
+How do Binance p2p payments release and mark paid system works?
+
+How can we use that model?
+So, what at point do they pay gas fees, at what point does the platform removes its fees? 
+At what point do they stake?
+Creation or voting ?
+Give me a simple flow from 2 users
+So, one user creates (offchain)
+The opponent accepts and stake onchain?
+
+Then what happens to the creators stake?
+There has to be another point of stake for this Open Challenge because the Creator might be offline when his challenges finds an opponent that’s ready to go/challenge
+
+The Direct challenge model is a bit different as the other player accepts on request (notification or inbox)
+What if the Creator gets a notification that his challenge has been accepted and then prompted to pay stake too ? Instead of waiting online 24/7
+This is good 
+
+Now make sure Chat room will not open for that challenge if no Challenge is accepted ( which of course means both have staked and escrow and countdown is active. 
+You’ve hit the Free plan limit for GPT-5.
+You need GPT-5 to continue this chat
