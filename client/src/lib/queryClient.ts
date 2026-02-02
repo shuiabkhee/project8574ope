@@ -9,7 +9,7 @@ function throwIfResNotOk(res: Response) {
 // Store token from Privy authentication (set by the useAuth hook)
 let cachedAuthToken: string | null = null;
 
-const TOKEN_STORAGE_KEY = 'supabaseAuthToken';
+const TOKEN_STORAGE_KEY = 'privyAuthToken';
 
 /**
  * Initialize auth token from localStorage on app startup

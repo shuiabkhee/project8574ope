@@ -12,7 +12,12 @@ export function useNotifications() {
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['/api/notifications'],
-    queryFn: () => apiRequest('GET', '/api/notifications'),
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/notifications');
+      // API returns { data: [...], total, limit, offset }
+      if (res && res.data) return res.data;
+      return res;
+    },
     enabled: !!user,
     refetchInterval: 30000, // Refetch every 30 seconds
   });

@@ -14,7 +14,7 @@ import { ethers } from 'ethers';
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { isAuthenticated } from '../auth';
-import { SupabaseAuthMiddleware } from '../supabaseAuth';
+import { PrivyAuthMiddleware } from '../privyAuth';
 import { NotificationService, NotificationEvent, NotificationChannel, NotificationPriority } from '../notificationService';
 import {
   createAdminChallenge,
@@ -187,7 +187,7 @@ router.get('/debug/status', async (req: Request, res: Response) => {
  * POST /api/challenges/create-admin
  * Create a new admin-created challenge (betting pool)
  */
-router.post('/create-admin', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/create-admin', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { stakeAmount, paymentToken, metadataURI, title, description, category, dueDate } = req.body;
     const userId = req.user?.id;
@@ -319,7 +319,7 @@ router.post('/create-admin', SupabaseAuthMiddleware, async (req: Request, res: R
  * - Open Challenge: opponentId null/undefined, anyone can accept
  * Note: User must sign the blockchain transaction client-side with their wallet
  */
-router.post('/create-p2p', SupabaseAuthMiddleware, upload.single('coverImage'), async (req: Request, res: Response) => {
+router.post('/create-p2p', PrivyAuthMiddleware, upload.single('coverImage'), async (req: Request, res: Response) => {
   try {
     const { opponentId, stakeAmount, paymentToken, metadataURI, title, description, challengeType, dueDate, transactionHash, side, settlementType } = req.body;
     const userId = req.user?.id;
@@ -550,14 +550,14 @@ router.post('/create-p2p', SupabaseAuthMiddleware, upload.single('coverImage'), 
  * POST /api/challenges/:id/accept-stake
  * Opponent accepts and stakes on-chain
  */
-router.post('/:id/accept-stake', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/:id/accept-stake', PrivyAuthMiddleware, async (req: Request, res: Response) => {
 
   /**
    * POST /api/challenges/:id/prepare-stake
    * Returns a prefilled transaction payload for the client wallet to sign
    * Body: { role?: 'creator'|'acceptor' } (optional) - server will infer when possible
    */
-  router.post('/:id/prepare-stake', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+  router.post('/:id/prepare-stake', PrivyAuthMiddleware, async (req: Request, res: Response) => {
     try {
       const challengeId = parseInt(req.params.id);
       const userId = req.user?.id;
@@ -699,7 +699,7 @@ router.post('/:id/accept-stake', SupabaseAuthMiddleware, async (req: Request, re
  * POST /api/challenges/:id/creator-confirm-stake
  * Creator confirms and stakes on-chain after opponent has staked
  */
-router.post('/:id/creator-confirm-stake', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/:id/creator-confirm-stake', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { transactionHash } = req.body;
     const challengeId = parseInt(req.params.id);
@@ -734,7 +734,7 @@ router.post('/:id/creator-confirm-stake', SupabaseAuthMiddleware, async (req: Re
  * POST /api/challenges/:id/vote
  * Submit a vote for the outcome of the challenge
  */
-router.post('/:id/vote', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/:id/vote', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { winnerId } = req.body; // userId of the winner or "draw"
     const challengeId = parseInt(req.params.id);
@@ -786,7 +786,7 @@ router.post('/:id/vote', SupabaseAuthMiddleware, async (req: Request, res: Respo
  * POST /api/challenges/:id/proof
  * Submit proof for the outcome of the challenge
  */
-router.post('/:id/proof', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/:id/proof', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { proof } = req.body; // URL or description
     const challengeId = parseInt(req.params.id);
@@ -819,7 +819,7 @@ router.post('/:id/proof', SupabaseAuthMiddleware, async (req: Request, res: Resp
  * POST /api/challenges/:id/join
  * Join an admin challenge (choose YES or NO side)
  */
-router.post('/:id/join', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/:id/join', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { side } = req.body; // true for YES, false for NO
     const challengeId = parseInt(req.params.id);
@@ -960,7 +960,7 @@ router.post('/:id/join', SupabaseAuthMiddleware, async (req: Request, res: Respo
  * POST /api/challenges/:id/accept
  * Accept a P2P challenge (as the challenged user)
  */
-router.post('/:id/accept', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/:id/accept', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const challengeId = parseInt(req.params.id);
     const userId = req.user?.id;
@@ -1012,7 +1012,7 @@ router.post('/:id/accept', SupabaseAuthMiddleware, async (req: Request, res: Res
  * GET /api/challenges/:id
  * Get challenge details with on-chain data
  */
-router.get('/:id', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const challengeId = parseInt(req.params.id);
 
@@ -1117,7 +1117,7 @@ router.get('/:id', SupabaseAuthMiddleware, async (req: Request, res: Response) =
  * GET /api/challenges
  * List challenges with filters
  */
-router.get('/', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { status, adminCreated, limit = 50, offset = 0 } = req.query;
 
@@ -1188,7 +1188,7 @@ router.get('/', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
  * GET /api/challenges/user/:userId
  * Get user's challenges
  */
-router.get('/user/:userId', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/user/:userId', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
 
@@ -1256,7 +1256,7 @@ router.get('/user/:userId', SupabaseAuthMiddleware, async (req: Request, res: Re
  * Accept an open P2P challenge (first user to join becomes opponent)
  * Calls blockchain: joinOpenP2PChallenge()
  */
-router.post('/:challengeId/accept-open', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/:challengeId/accept-open', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { challengeId } = req.params;
     const userId = req.user?.id;
@@ -1446,7 +1446,7 @@ router.post('/:challengeId/accept-open', SupabaseAuthMiddleware, async (req: Req
  * Submit evidence for a P2P challenge
  * Users can submit proof to support their position before or after dispute
  */
-router.post('/:challengeId/evidence', SupabaseAuthMiddleware, upload.array('files', 5), async (req: Request, res: Response) => {
+router.post('/:challengeId/evidence', PrivyAuthMiddleware, upload.array('files', 5), async (req: Request, res: Response) => {
   try {
     const { challengeId } = req.params;
     const userId = req.user?.id;
@@ -1618,7 +1618,7 @@ router.post('/:challengeId/evidence', SupabaseAuthMiddleware, upload.array('file
  * GET /api/challenges/:challengeId/messages
  * Get all messages for a challenge
  */
-router.get('/:challengeId/messages', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/:challengeId/messages', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { challengeId } = req.params;
     const userId = req.user?.id;
@@ -1682,7 +1682,7 @@ router.get('/:challengeId/messages', SupabaseAuthMiddleware, async (req: Request
  * POST /api/challenges/:challengeId/messages
  * Send a message to a challenge chat
  */
-router.post('/:challengeId/messages', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/:challengeId/messages', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { challengeId } = req.params;
     const userId = req.user?.id;

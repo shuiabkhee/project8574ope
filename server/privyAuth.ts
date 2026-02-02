@@ -1,4 +1,5 @@
 import { PrivyClient } from '@privy-io/server-auth';
+import { verifyWithPublicKey } from './privyJwtVerifier';
 
 const PRIVY_APP_ID = process.env.PRIVY_APP_ID;
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET;
@@ -30,13 +31,21 @@ export async function verifyPrivyToken(token: string) {
   try {
     console.log(`🔍 Starting Privy token verification...`);
     console.log(`   Token length: ${token.length} chars`);
-    
+
+    // Fast path: if a static public key is provided, verify locally via ES256
+    const local = verifyWithPublicKey(token);
+    if (local) {
+      console.log('✅ Token verified locally with provided public key');
+      return local;
+    }
+
+    // Fallback: use Privy SDK client to verify (will use app id/secret)
     const verifiedClaims = await privyClient.verifyAuthToken(token);
-    
-    console.log(`✅ Token verified successfully`);
+
+    console.log(`✅ Token verified successfully via Privy client`);
     console.log(`   Claims keys: ${Object.keys(verifiedClaims).join(', ')}`);
     console.log(`   userId: ${verifiedClaims?.userId || verifiedClaims?.sub}`);
-    
+
     return verifiedClaims;
   } catch (error: any) {
     console.error('❌ Privy token verification failed:', error.message || error);
@@ -44,6 +53,18 @@ export async function verifyPrivyToken(token: string) {
     return null;
   }
 }
+
+// Supabase JWT support removed — this server now accepts Privy JWTs only.
+// Supabase-related helper functions were intentionally removed to avoid
+// generating or verifying HS256 tokens. If you need to reintroduce them,
+// consider adding a separate module with explicit opt-in.
+
+/**
+ * Compatibility Supabase middleware exported here so other modules/tests
+ * that previously imported `SupabaseAuthMiddleware` continue to work.
+ */
+// NOTE: `SupabaseAuthMiddleware` shim removed — use `PrivyAuthMiddleware` exclusively.
+// Supabase helper references removed — server now uses Privy JWTs exclusively.
 
 function getInitialsFromEmail(email?: string) {
   if (!email || typeof email !== 'string') return '';
@@ -60,11 +81,9 @@ function getInitialsFromEmail(email?: string) {
   return '';
 }
 
-import { storage } from './storage';
-
 async function getUserFromDb(userId: string) {
   try {
-    // Fetch user from actual database
+    const { storage } = await import('./storage');
     const user = await storage.getUser(userId);
     return user;
   } catch (error) {
@@ -75,6 +94,7 @@ async function getUserFromDb(userId: string) {
 
 async function upsertPrivyUser(verifiedClaims: any) {
   try {
+    const { storage } = await import('./storage');
     const userId = verifiedClaims.userId || verifiedClaims.sub;
     let dbUser = await getUserFromDb(userId);
     
@@ -155,7 +175,6 @@ export async function PrivyAuthMiddleware(req: any, res: any, next: any) {
 
   const token = authHeader.replace('Bearer ', '');
   console.log(`🔑 Token received (first 30 chars): ${token.substring(0, 30)}...`);
-
   try {
     console.log('⏳ Verifying Privy token...');
     const verifiedClaims = await verifyPrivyToken(token);

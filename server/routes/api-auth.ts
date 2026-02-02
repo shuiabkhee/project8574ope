@@ -1,23 +1,11 @@
-import { Router, Request, Response } from 'express';
-import { getOrCreateSupabaseUser, generateSupabaseToken } from '../supabaseAuth';
-import crypto from 'crypto';
-import { storage } from '../storage';
+// Deprecated: Supabase wallet-login route removed. This file kept as a harmless stub
+import { Router } from 'express';
 
 const router = Router();
 
-/**
- * POST /api/auth/wallet-login
- * Exchange Privy wallet authentication for Supabase JWT
- * 
- * Frontend should call this after successful Privy wallet login
- * Pass the wallet address to get back a Supabase JWT token
- */
-router.post('/wallet-login', async (req: Request, res: Response) => {
-  try {
-    const { walletAddress, email, privyUserId } = req.body;
-
-    console.log(`\n🔑 Wallet login attempt for: ${walletAddress}`);
-    console.log(`   Privy User ID: ${privyUserId || 'not provided'}`);
+router.use((req, res) => {
+  res.status(410).json({ error: 'Deprecated: wallet-login is removed. Use Privy auth only.' });
+});
 
     if (!walletAddress) {
       return res.status(400).json({ error: 'Missing walletAddress' });

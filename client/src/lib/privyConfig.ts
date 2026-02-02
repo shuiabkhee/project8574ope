@@ -1,6 +1,6 @@
 
 export const privyConfig = {
-  appId: 'cm4winhli04jg1tvq07cb8942',
+  appId: import.meta.env?.VITE_PRIVY_APP_ID || 'cm4winhli04jg1tvq07cb8942',
   config: {
     loginMethods: ['email', 'wallet', 'telegram'],
     appearance: {

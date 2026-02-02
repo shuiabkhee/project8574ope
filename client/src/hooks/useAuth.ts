@@ -26,103 +26,20 @@ export function useAuth() {
         setStableAuthenticated(authenticated);
       }
       
-      // If authenticated, exchange Privy wallet for Supabase JWT
+      // If authenticated, use Privy access token directly for API requests
       if (authenticated && user?.wallet?.address) {
-        // Prevent multiple simultaneous exchanges, but verify stored token first
-        const currentToken = localStorage.getItem('supabaseAuthToken');
-
-        // Helper: determine if a token is a Supabase-issued JWT we should trust
-        const isSupabaseToken = (token?: string | null) => {
-          if (!token) return false;
-          try {
-            const parts = token.split('.');
-            if (parts.length !== 3) return false;
-            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-
-            // Must not be a Privy DID subject
-            if (typeof payload?.sub === 'string' && payload.sub.startsWith('did:')) return false;
-
-            // Prefer tokens issued for Supabase authenticated audience
-            if (payload?.aud && payload?.aud !== 'authenticated') return false;
-
-            // Optional: if iss exists, prefer Supabase issuer
-            if (payload?.iss && typeof payload.iss === 'string' && !payload.iss.includes('supabase')) return false;
-
-            // Must include user metadata we expect from our server-issued Supabase JWT
-            if (!payload?.user_metadata || !payload.user_metadata.wallet_address) return false;
-
-            return true;
-          } catch (err) {
-            return false;
-          }
-        };
-
-        if (currentToken && isSupabaseToken(currentToken)) {
-          console.log('✅ Valid Supabase token present, skipping exchange');
-          return; // token looks like a Supabase JWT -> skip exchange
-        }
-
-        if (currentToken && !isSupabaseToken(currentToken)) {
-          console.warn('⚠️ Stored token is not a Supabase token — forcing Privy→Supabase exchange');
-        }
-
         (async () => {
           try {
-            console.log('🔄 Exchanging Privy wallet for Supabase JWT...');
-            console.log(`   Wallet: ${user.wallet.address}`);
-            
-            // Exchange wallet login for Supabase JWT token
-            const response = await fetch('/api/auth/wallet-login', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                walletAddress: user.wallet.address,
-                email: user.email,
-                privyUserId: user.id,
-              }),
-            });
-
-            if (!response.ok) {
-              throw new Error(`Login failed: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            const supabaseToken = data.token;
-
-            if (supabaseToken) {
-              setAuthToken(supabaseToken);
-              console.log('✅ Supabase JWT token set for API requests');
-              console.log(`   Token (first 40 chars): ${supabaseToken.substring(0, 40)}...`);
-
-              // Check for stored referral code and report it to the backend
-              const storedReferralCode = localStorage.getItem("referralCode");
-              if (storedReferralCode) {
-                try {
-                  const response = await fetch('/api/referrals/apply', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${supabaseToken}`
-                    },
-                    body: JSON.stringify({ referralCode: storedReferralCode })
-                  });
-                  
-                  if (response.ok) {
-                    localStorage.removeItem("referralCode");
-                    console.log('✅ Referral code applied');
-                  }
-                } catch (err) {
-                  console.error('Failed to apply referral code:', err);
-                }
-              }
+            const accessToken = await getAccessToken();
+            if (accessToken) {
+              setAuthToken(accessToken);
+              console.log('✅ Privy access token set for API requests');
             } else {
-              console.warn('⚠️ No token returned from wallet login');
+              console.warn('⚠️ No Privy access token available');
               setAuthToken(null);
             }
           } catch (err) {
-            console.error('❌ Failed to exchange wallet for JWT:', err);
+            console.error('❌ Failed to obtain Privy access token:', err);
             setAuthToken(null);
           }
         })();

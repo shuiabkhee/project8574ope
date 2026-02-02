@@ -1,5 +1,4 @@
-import React from "react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense, lazy } from "react";
 import { Router, Switch, Route, useLocation } from "wouter";
 import { apiRequest, queryClient, initializeAuthToken } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -72,7 +71,6 @@ import NotificationTest from "./pages/NotificationTest";
 import PublicProfile from "@/pages/PublicProfile";
 import { Navigation } from "@/components/Navigation";
 import { ErrorBoundary } from "react-error-boundary";
-import { Suspense, lazy } from "react";
 import EventDetails from "./pages/EventDetails";
 import ChallengeChatPage from "./pages/ChallengeChatPage";
 import { PrivyProvider } from '@privy-io/react-auth';

@@ -1,6 +1,8 @@
 import {
   users,
   events,
+  dailyLogins,
+  transactions,
   type User,
   type UpsertUser,
   type Event,
@@ -148,6 +150,118 @@ export class DatabaseStorage implements IStorage {
   async createEvent(event: InsertEvent): Promise<Event> {
     const [newEvent] = await this.db.insert(events).values(event).returning();
     return newEvent;
+  }
+
+  // Daily login helpers
+  async checkDailyLogin(userId: string) {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+    // See if there's already an entry today
+    const todayRows = await this.db
+      .select()
+      .from(dailyLogins)
+      .where(eq(dailyLogins.userId, userId))
+      .where(dailyLogins.date.gte(startOfToday) as any)
+      .where(dailyLogins.date.lte(endOfToday) as any)
+      .orderBy(desc(dailyLogins.date))
+      .limit(1);
+
+    if (todayRows && todayRows.length > 0) {
+      const rec = todayRows[0];
+      return {
+        canClaim: !rec.claimed,
+        hasSignedInToday: true,
+        streak: rec.streak || 0,
+        pointsEarned: rec.pointsEarned || 0,
+        hasClaimedToday: !!rec.claimed,
+      };
+    }
+
+    // No entry today; compute streak from yesterday
+    const yesterdayStart = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayEnd = new Date(startOfToday.getTime() - 1);
+
+    const yesterdayRows = await this.db
+      .select()
+      .from(dailyLogins)
+      .where(eq(dailyLogins.userId, userId))
+      .where(dailyLogins.date.gte(yesterdayStart) as any)
+      .where(dailyLogins.date.lte(yesterdayEnd) as any)
+      .orderBy(desc(dailyLogins.date))
+      .limit(1);
+
+    const yesterdayRec = (yesterdayRows && yesterdayRows.length > 0) ? yesterdayRows[0] : null;
+    const newStreak = yesterdayRec ? (Number(yesterdayRec.streak || 0) + 1) : 1;
+
+    // Calculate points using same rules as client
+    const baseReward = 50;
+    const streakBonus = Math.min(newStreak * 10, 200);
+    const weeklyBonus = Math.floor(newStreak / 7) * 100;
+    const pointsEarned = baseReward + streakBonus + weeklyBonus;
+
+    const [inserted] = await this.db.insert(dailyLogins).values({
+      userId,
+      date: now,
+      streak: newStreak,
+      pointsEarned,
+      claimed: false,
+      createdAt: new Date(),
+    }).returning();
+
+    return {
+      canClaim: true,
+      hasSignedInToday: true,
+      streak: inserted.streak || newStreak,
+      pointsEarned: inserted.pointsEarned || pointsEarned,
+      hasClaimedToday: false,
+    };
+  }
+
+  async claimDailyLogin(userId: string) {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+    // Find today's unclaimed record
+    const rows = await this.db
+      .select()
+      .from(dailyLogins)
+      .where(eq(dailyLogins.userId, userId))
+      .where(dailyLogins.date.gte(startOfToday) as any)
+      .where(dailyLogins.date.lte(endOfToday) as any)
+      .orderBy(desc(dailyLogins.date))
+      .limit(1);
+
+    if (!rows || rows.length === 0) {
+      throw new Error('No daily login available to claim');
+    }
+
+    const rec = rows[0];
+    if (rec.claimed) {
+      throw new Error('Already claimed today');
+    }
+
+    // Mark claimed
+    await this.db.update(dailyLogins).set({ claimed: true }).where(eq(dailyLogins.id, rec.id));
+
+    // Update user's points balance
+    await this.db.execute(sql`UPDATE users SET points = points + ${rec.pointsEarned} WHERE id = ${userId}`);
+
+    // Create transaction record
+    await this.db.insert(transactions).values({
+      userId,
+      type: 'daily_login',
+      amount: rec.pointsEarned.toString(),
+      description: `Daily login reward - streak ${rec.streak}`,
+      status: 'completed',
+      createdAt: new Date(),
+    });
+
+    return { points: rec.pointsEarned, streak: rec.streak };
   }
 }
 

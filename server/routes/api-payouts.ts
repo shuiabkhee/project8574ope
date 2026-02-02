@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { SupabaseAuthMiddleware } from '../supabaseAuth';
+import { PrivyAuthMiddleware } from '../privyAuth';
 import { isAuthenticated } from '../auth';
 import { claimPayout } from '../blockchain/helpers';
 import {
@@ -274,7 +274,7 @@ router.post('/batch-claim', isAuthenticated, async (req: Request, res: Response)
  * GET /api/payouts/earnings-history
  * Get cumulative earnings data for the past N days
  */
-router.get('/earnings-history', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/earnings-history', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     const days = parseInt(req.query.days as string) || 7;

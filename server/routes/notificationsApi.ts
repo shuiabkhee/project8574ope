@@ -13,7 +13,7 @@ import { NotificationService } from '../notificationService';
 import { db } from '../db';
 import { notifications, userNotificationPreferences } from '../../shared/schema';
 import { eq, and, desc, count } from 'drizzle-orm';
-import { SupabaseAuthMiddleware } from '../supabaseAuth';
+import { PrivyAuthMiddleware } from '../privyAuth';
 import crypto from 'crypto';
 
 const router = Router();
@@ -27,7 +27,7 @@ const notificationService = new NotificationService();
  * - limit: number (default: 20)
  * - offset: number (default: 0)
  */
-router.get('/', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     console.log('\n📬 GET /api/notifications called');
@@ -120,7 +120,7 @@ router.get('/', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
  * GET /api/notifications/unread-count
  * Get count of unread notifications
  */
-router.get('/unread-count', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/unread-count', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
 
@@ -144,7 +144,7 @@ router.get('/unread-count', SupabaseAuthMiddleware, async (req: Request, res: Re
  * PUT /api/notifications/:id/read
  * Mark notification as read
  */
-router.put('/:id/read', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.put('/:id/read', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const notificationId = req.params.id;
     const userId = req.user?.id;
@@ -174,7 +174,7 @@ router.put('/:id/read', SupabaseAuthMiddleware, async (req: Request, res: Respon
 });
 
 // Support PATCH method for clients that use PATCH instead of PUT
-router.patch('/:id/read', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/read', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const notificationId = req.params.id;
     const userId = req.user?.id;
@@ -207,7 +207,7 @@ router.patch('/:id/read', SupabaseAuthMiddleware, async (req: Request, res: Resp
  * PUT /api/notifications/read-all
  * Mark all notifications as read
  */
-router.put('/read-all', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.put('/read-all', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
 
@@ -231,7 +231,7 @@ router.put('/read-all', SupabaseAuthMiddleware, async (req: Request, res: Respon
  * DELETE /api/notifications/:id
  * Delete a notification
  */
-router.delete('/:id', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.delete('/:id', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const notificationId = req.params.id;
     const userId = req.user?.id;
@@ -264,7 +264,7 @@ router.delete('/:id', SupabaseAuthMiddleware, async (req: Request, res: Response
  * DELETE /api/notifications/clear-all
  * Delete all notifications for user
  */
-router.delete('/clear-all', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.delete('/clear-all', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
 
@@ -286,7 +286,7 @@ router.delete('/clear-all', SupabaseAuthMiddleware, async (req: Request, res: Re
  * GET /api/notifications/preferences
  * Get user notification preferences
  */
-router.get('/preferences', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/preferences', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
 
@@ -330,7 +330,7 @@ router.get('/preferences', SupabaseAuthMiddleware, async (req: Request, res: Res
  * PUT /api/notifications/preferences
  * Update user notification preferences
  */
-router.put('/preferences', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.put('/preferences', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     
@@ -389,7 +389,7 @@ router.put('/preferences', SupabaseAuthMiddleware, async (req: Request, res: Res
  * POST /api/notifications/mute-challenge/:challengeId
  * Mute notifications for a challenge
  */
-router.post('/mute-challenge/:challengeId', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/mute-challenge/:challengeId', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     const challengeId = req.params.challengeId;
@@ -432,7 +432,7 @@ router.post('/mute-challenge/:challengeId', SupabaseAuthMiddleware, async (req: 
  * POST /api/notifications/unmute-challenge/:challengeId
  * Unmute notifications for a challenge
  */
-router.post('/unmute-challenge/:challengeId', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/unmute-challenge/:challengeId', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     const challengeId = req.params.challengeId;

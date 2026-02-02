@@ -2,10 +2,9 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { SupabaseAuthMiddleware } from "./supabaseAuth";
+import { PrivyAuthMiddleware } from "./privyAuth";
 import { setupOGImageRoutes } from "./ogImageGenerator";
 import ogMetadataRouter from './routes/og-metadata';
-import authRouter from './routes/api-auth';
 import { registerBlockchainRoutes } from './routes/index';
 import { initializeBlockchain } from './blockchain/init';
 
@@ -33,7 +32,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Profile routes
-  app.get('/api/profile', SupabaseAuthMiddleware, async (req: AuthenticatedRequest, res) => {
+  app.get('/api/profile', PrivyAuthMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
@@ -44,7 +43,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update profile (PUT)
-  app.put('/api/profile', SupabaseAuthMiddleware, async (req: AuthenticatedRequest, res) => {
+  app.put('/api/profile', PrivyAuthMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = getUserId(req);
       const { firstName, lastName, username, profileImageUrl } = req.body;
@@ -72,8 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Auth routes (Supabase wallet login)
-  app.use('/api/auth', authRouter);
+  // Auth routes removed: Supabase wallet-login deprecated in favor of Privy-only auth
 
   // Event routes
   app.get('/api/events', async (req, res) => {
@@ -108,7 +106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Authenticated users list (admin or authenticated use-cases)
-  app.get('/api/users', SupabaseAuthMiddleware, async (req: AuthenticatedRequest, res) => {
+  app.get('/api/users', PrivyAuthMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const allUsers = await storage.getAllUsersWithWallets();
       res.json(allUsers);
@@ -119,7 +117,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Wallet routes
-  app.post('/api/wallet/deposit', SupabaseAuthMiddleware, async (req: AuthenticatedRequest, res) => {
+  app.post('/api/wallet/deposit', PrivyAuthMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = getUserId(req);
       const { amount } = req.body;

@@ -8,7 +8,9 @@ import { db } from '../db';
 import { users, transactions, dailyLogins } from '../../shared/schema';
 import { eq, desc } from 'drizzle-orm';
 import { isAuthenticated } from '../middleware/auth';
-import { SupabaseAuthMiddleware } from '../supabaseAuth';
+import { PrivyAuthMiddleware } from '../privyAuth';
+import { storage } from '../storage';
+import { notificationService, NotificationEvent, NotificationChannel, NotificationPriority } from '../notificationService';
 
 const router = Router();
 
@@ -16,7 +18,7 @@ const router = Router();
  * POST /api/user/fcm-token
  * Save FCM token for current user (for push notifications)
  */
-router.post('/fcm-token', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/fcm-token', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { token } = req.body;
     const userId = req.user?.id;
@@ -59,7 +61,7 @@ router.post('/fcm-token', SupabaseAuthMiddleware, async (req: Request, res: Resp
  * GET /api/user/profile
  * Get current user profile
  */
-router.get('/profile', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/profile', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
 
@@ -160,7 +162,7 @@ router.get('/users/:userId/profile', async (req: Request, res: Response) => {
  * GET /api/transactions
  * Get current user's transaction history (deposits, withdrawals, challenge earnings, etc.)
  */
-router.get('/transactions', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/transactions', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     const { limit = 50, offset = 0 } = req.query;
@@ -224,7 +226,7 @@ router.get('/transactions', SupabaseAuthMiddleware, async (req: Request, res: Re
  * PATCH /api/user/profile
  * Update current user profile
  */
-router.patch('/profile', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.patch('/profile', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     const { firstName, lastName, username, profileImageUrl } = req.body;
@@ -270,7 +272,7 @@ router.patch('/profile', SupabaseAuthMiddleware, async (req: Request, res: Respo
  * GET /api/user/stats
  * Get user statistics (wins, friends, challenges created, etc.)
  */
-router.get('/stats', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/stats', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
 
@@ -314,7 +316,7 @@ router.get('/stats', SupabaseAuthMiddleware, async (req: Request, res: Response)
  * GET /api/user/achievements
  * Get user achievements/badges
  */
-router.get('/achievements', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/achievements', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
 
@@ -389,7 +391,7 @@ router.get('/achievements', SupabaseAuthMiddleware, async (req: Request, res: Re
  * GET /api/daily-signin/history
  * Get user's daily login history
  */
-router.get('/daily-signin/history', SupabaseAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/daily-signin/history', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     const { limit = 30 } = req.query;
@@ -424,6 +426,57 @@ router.get('/daily-signin/history', SupabaseAuthMiddleware, async (req: Request,
       error: 'Failed to fetch daily signin history',
       message: error.message,
     });
+  }
+});
+
+/**
+ * GET /api/daily-signin/status
+ * Returns whether user has signed in today and can claim
+ */
+router.get('/daily-signin/status', PrivyAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+
+    const status = await storage.checkDailyLogin(userId);
+    res.json(status);
+  } catch (error: any) {
+    console.error('Error fetching daily signin status:', error);
+    res.status(500).json({ error: 'Failed to fetch daily signin status', message: error.message });
+  }
+});
+
+/**
+ * POST /api/daily-signin/claim
+ * Claim today's daily login reward
+ */
+router.post('/daily-signin/claim', PrivyAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+
+    const result = await storage.claimDailyLogin(userId);
+
+    // Send notification about points earned
+    try {
+      await notificationService.send({
+        userId,
+        challengeId: '0',
+        event: NotificationEvent.POINTS_EARNED,
+        title: '🎉 Daily Login Bonus!',
+        body: `You received ${result.points} Bantah Points for logging in today!`,
+        channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+        priority: NotificationPriority.MEDIUM,
+        data: { points: result.points, streak: result.streak, actionUrl: '/wallet' },
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send daily-login notification:', notifErr);
+    }
+
+    res.json({ success: true, points: result.points, streak: result.streak });
+  } catch (error: any) {
+    console.error('Error claiming daily signin reward:', error);
+    res.status(400).json({ error: error.message });
   }
 });
 
