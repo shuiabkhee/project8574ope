@@ -36,6 +36,7 @@ import {
 } from '../blockchain/db-utils';
 import { calculateCreationPoints, calculateParticipationPoints } from '../utils/points-calculator';
 import { notifyPointsEarnedParticipation, notifyPointsEarnedCreation } from '../utils/bantahPointsNotifications';
+import { notifyOpponentVoted, notifyProofSubmitted, notifyChallengeActivated, notifyEscrowLocked, notifyDisputeRaised, notifyNewChatMessage } from '../utils/challengeActivityNotifications';
 import { db } from '../db';
 import { challenges, users } from '../../shared/schema';
 import { eq, inArray, sql } from 'drizzle-orm';
@@ -647,6 +648,18 @@ router.post('/:id/accept-stake', PrivyAuthMiddleware, async (req: Request, res: 
     // If creator already staked, move to active and start countdown
     const updated = await db.select().from(challenges).where(eq(challenges.id, challengeId)).limit(1);
     const uc = updated[0];
+    
+    // Notify opponent that stakes are locked in escrow
+    const stakedUser = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const stakedUserName = stakedUser[0]?.firstName || 'Someone';
+    const stakeAmountFormatted = uc.amount ? `${uc.amount} pts` : 'Unknown amount';
+    
+    if (uc.challenged && uc.challenger) {
+      const opponentId = uc.challenged === userId ? uc.challenger : uc.challenged;
+      notifyEscrowLocked(opponentId, challengeId, stakeAmountFormatted, uc.title || `Challenge #${challengeId}`)
+        .catch(err => console.warn('Failed to notify of escrow lock:', err?.message));
+    }
+    
     if (uc.creatorStaked && uc.acceptorStaked) {
       // compute original duration if set, otherwise default 24h
       const createdAt = uc.createdAt ? new Date(uc.createdAt).getTime() : Date.now();
@@ -662,30 +675,14 @@ router.post('/:id/accept-stake', PrivyAuthMiddleware, async (req: Request, res: 
 
       // Notify both participants that challenge is active and chat is open
       try {
-        await notificationService.send({
-          userId: uc.challenger,
-          challengeId: challengeId.toString(),
-          event: NotificationEvent.CHALLENGE_JOINED_FRIEND,
-          title: `⚔️ Challenge is active!`,
-          body: `Your challenge has been matched and is now active. Chat is open and countdown started.`,
-          channels: [NotificationChannel.IN_APP],
-          priority: NotificationPriority.HIGH,
-          data: { challengeId }
-        });
+        notifyEscrowLocked(uc.challenger, challengeId, stakeAmountFormatted, uc.title || `Challenge #${challengeId}`)
+          .catch((err: any) => console.warn('Failed to notify challenger of full escrow lock:', err?.message));
         if (uc.challenged) {
-          await notificationService.send({
-            userId: uc.challenged,
-            challengeId: challengeId.toString(),
-            event: NotificationEvent.CHALLENGE_JOINED_FRIEND,
-            title: `⚔️ Challenge is active!`,
-            body: `Challenge is active. Chat is open and countdown started.`,
-            channels: [NotificationChannel.IN_APP],
-            priority: NotificationPriority.HIGH,
-            data: { challengeId }
-          });
+          notifyEscrowLocked(uc.challenged, challengeId, stakeAmountFormatted, uc.title || `Challenge #${challengeId}`)
+            .catch((err: any) => console.warn('Failed to notify acceptor of full escrow lock:', err?.message));
         }
       } catch (notifyErr) {
-        console.warn('Failed to notify participants of active challenge:', notifyErr);
+        console.warn('Failed to notify participants of escrow lock:', notifyErr);
       }
     }
 
@@ -762,6 +759,17 @@ router.post('/:id/vote', PrivyAuthMiddleware, async (req: Request, res: Response
     const updatedChallenge = await db.select().from(challenges).where(eq(challenges.id, challengeId)).limit(1);
     const uc = updatedChallenge[0];
 
+    // Notify opponent that user voted
+    const opponentId = isChallenger ? uc.challenged : uc.challenger;
+    const voterUser = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const voterName = voterUser[0]?.firstName || 'Someone';
+    const acceptorUser = uc.challenged ? await db.select().from(users).where(eq(users.id, uc.challenged)).limit(1) : null;
+    
+    if (opponentId && voterName) {
+      notifyOpponentVoted(opponentId, challengeId, voterName, uc.title || `Challenge #${challengeId}`)
+        .catch(err => console.warn('Failed to notify opponent of vote:', err?.message));
+    }
+
     if (uc.creatorVote && uc.acceptorVote) {
       if (uc.creatorVote === uc.acceptorVote) {
         // Agreement! Settlement logic here (Escrow release would be triggered on-chain or via admin)
@@ -773,6 +781,19 @@ router.post('/:id/vote', PrivyAuthMiddleware, async (req: Request, res: Response
       } else {
         // Disagreement - mark as disputed
         await db.update(challenges).set({ status: 'disputed' }).where(eq(challenges.id, challengeId));
+        
+        // Notify both participants of dispute
+        const disputeMsg = `Vote mismatch: Creator voted "${uc.creatorVote}", Acceptor voted "${uc.acceptorVote}"`;
+        
+        if (uc.challenger) {
+          notifyDisputeRaised(uc.challenger, challengeId, uc.title || `Challenge #${challengeId}`, disputeMsg, voterName || 'System')
+            .catch(err => console.warn('Failed to notify creator of dispute:', err?.message));
+        }
+        if (uc.challenged) {
+          const otherVoterName = isChallenger ? (acceptorUser?.[0]?.firstName || 'Opponent') : voterName;
+          notifyDisputeRaised(uc.challenged, challengeId, uc.title || `Challenge #${challengeId}`, disputeMsg, otherVoterName || 'System')
+            .catch(err => console.warn('Failed to notify acceptor of dispute:', err?.message));
+        }
       }
     }
 
@@ -808,6 +829,16 @@ router.post('/:id/proof', PrivyAuthMiddleware, async (req: Request, res: Respons
     else updateData.acceptorProof = proof;
 
     await db.update(challenges).set(updateData).where(eq(challenges.id, challengeId));
+
+    // Notify opponent that proof was submitted
+    const opponentId = isChallenger ? challenge[0].challenged : challenge[0].challenger;
+    const submitterUser = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const submitterName = submitterUser[0]?.firstName || 'Someone';
+    
+    if (opponentId && submitterName) {
+      notifyProofSubmitted(opponentId, challengeId, submitterName, challenge[0].title || `Challenge #${challengeId}`)
+        .catch(err => console.warn('Failed to notify opponent of proof submission:', err.message));
+    }
 
     res.json({ success: true, message: 'Proof submitted.' });
   } catch (error: any) {
@@ -1343,6 +1374,14 @@ router.post('/:challengeId/accept-open', PrivyAuthMiddleware, async (req: Reques
     // Step 4: Send notifications
     console.log(`📬 Sending notifications...`);
 
+    // Notify both participants that challenge is now active
+    const durationHours = Math.ceil((challenge.dueDate ? (challenge.dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60) : 24));
+    await notifyChallengeActivated(challenge.challenger!, challengeId, acceptorName, challenge.title || `Challenge #${challengeId}`, durationHours)
+      .catch(err => console.warn('Failed to notify creator of challenge activation:', err?.message));
+    
+    await notifyChallengeActivated(userId, challengeId, creatorName, challenge.title || `Challenge #${challengeId}`, durationHours)
+      .catch(err => console.warn('Failed to notify acceptor of challenge activation:', err?.message));
+
     // Notify creator that someone accepted their challenge
     await notificationService.sendNotification({
       userId: challenge.challenger!,
@@ -1748,17 +1787,22 @@ router.post('/:challengeId/messages', PrivyAuthMiddleware, async (req: Request, 
       user: userInfo[0] || null,
     };
 
-    // Send real-time notification via Pusher
-    const channelName = `challenge-${id}`;
-    await notificationService.pusher.trigger(channelName, 'new-message', {
-      id: newMessage.id,
-      challengeId: id,
-      userId: userId,
-      message: message.trim(),
-      createdAt: newMessage.createdAt,
-      user: userInfo[0] || null,
-    });
+    // Notify opponent about new message
+    const opponentId = challenge.challenger === userId ? challenge.challenged : challenge.challenger;
+    const senderName = userInfo[0]?.firstName || 'Opponent';
+    
+    if (opponentId) {
+      notifyNewChatMessage(
+        opponentId,
+        id,
+        senderName,
+        message.trim().substring(0, 100), // First 100 chars of message
+        challenge.title || `Challenge #${id}`
+      ).catch(err => console.warn('Failed to notify of new chat message:', err?.message));
+    }
 
+    // Send real-time notification - for now just respond with the message
+    // In-app Pusher notification will be sent via notifyNewChatMessage above
     res.json(messageWithUser);
   } catch (error: any) {
     console.error('Failed to send challenge message:', error);

@@ -82,7 +82,8 @@ class TelegramBot {
     
     messageContent += `💰 <b>Stake Amount:</b> $${challenge.amount.toFixed(2)}\n`;
     messageContent += `🏷️ <b>Category:</b> ${challenge.category || 'General'}\n`;
-    messageContent += `⏱️ <b>Expires in:</b> ${challenge.expirationHours || 24} hours\n\n`;
+    messageContent += `⏱️ <b>Expires in:</b> ${challenge.expirationHours || 24} hours\n`;
+    messageContent += `🏆 <b>Prize:</b> +Bantah Points + Opponent's Stake\n\n`;
     
     messageContent += `━━━━━━━━━━━━━━━━━━━━━\n`;
     messageContent += `🎯 <a href="${acceptLink}"><b>VIEW & ${challenge.challengeType === 'open' ? 'ACCEPT' : 'RESPOND'} CHALLENGE</b></a>\n`;

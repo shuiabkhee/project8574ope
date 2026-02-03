@@ -10,6 +10,7 @@ import fs from "fs";
 import { registerRoutes } from "./routes";
 import { startExpiryScheduler } from './jobs/expireChallenges';
 import { startChallengeExpiryReminderJob } from './jobs/challengeExpiryReminders';
+import { startVotingCountdownReminderJob } from './jobs/votingCountdownReminders';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -68,6 +69,7 @@ app.use((_req, res, next) => {
   // Start background jobs
   startExpiryScheduler();
   startChallengeExpiryReminderJob();
+  startVotingCountdownReminderJob();
   
   server.listen(
     {

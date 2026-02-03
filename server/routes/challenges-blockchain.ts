@@ -20,6 +20,7 @@ import { challenges, users } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import { NotificationService, NotificationEvent, NotificationChannel, NotificationPriority } from '../notificationService';
 import { notifyPointsEarnedWin } from '../utils/bantahPointsNotifications';
+import { notifyPaymentReceived, notifyPaymentReleased } from '../utils/challengeActivityNotifications';
 
 const router = Router();
 const notificationService = new NotificationService();
@@ -135,7 +136,7 @@ router.post(
             userId: winnerId,
             challengeId: challengeId.toString(),
             event: NotificationEvent.CHALLENGE_COMPLETED,
-            title: `🏆 You Won!`,
+            title: `🏆 Challenge Won! Bantah Points Awarded`,
             body: `Congratulations! You won the challenge "${challengeTitle}" and earned ${pointsAwarded} Bantah Points!`,
             channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
             priority: NotificationPriority.HIGH,
@@ -145,6 +146,11 @@ router.post(
               challengeTitle,
             },
           }).catch(err => console.warn('Failed to send victory notification:', err));
+
+          // Notify winner about payment release
+          const paymentAmount = challenge.amount ? `+${challenge.amount} stakes` : 'stakes';
+          notifyPaymentReleased(winnerId, challengeId, paymentAmount, challengeTitle, loserName)
+            .catch(err => console.warn('Failed to notify winner of payment release:', err.message));
         }
 
         // Send notification to loser

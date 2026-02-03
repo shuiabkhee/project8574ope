@@ -71,7 +71,7 @@ export async function notifyPointsEarnedWin(
     userId,
     challengeId: challengeId.toString(),
     event: NotificationEvent.POINTS_EARNED,
-    title: '🏆 Challenge Won! Points Awarded',
+    title: '🏆 Challenge Won! Bantah Points Awarded',
     body: `You earned ${points} Bantah Points for winning "${challengeTitle}"${winAmount ? ` + ${winAmount} prize` : ''}`,
     channels: [NotificationChannel.PUSH, NotificationChannel.IN_APP],
     priority: NotificationPriority.HIGH,
