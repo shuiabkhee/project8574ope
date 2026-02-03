@@ -506,11 +506,11 @@ router.post('/create-p2p', PrivyAuthMiddleware, upload.single('coverImage'), asy
               userId: u.id,
               challengeId: String(challengeId),
               event: NotificationEvent.CHALLENGE_CREATED,
-              title: 'New challenge available — first to accept!',
-              body: `${req.user?.username || 'A user'} created "${title}" — first to accept can stake.`,
+              title: '📊 New Market is available — be the first to accept!',
+              body: `@${req.user?.username} created "${title}" — be the first to stake and win.`,
               channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
               priority: NotificationPriority.MEDIUM,
-              data: { actionUrl: `/challenges/${challengeId}`, challengeId },
+              data: { actionUrl: `/challenges/${challengeId}`, challengeId, notificationType: 'challenge_received' },
             });
           } catch (err) {
             console.error('Failed to send open-challenge notification to user', u.id, err);
@@ -522,11 +522,11 @@ router.post('/create-p2p', PrivyAuthMiddleware, upload.single('coverImage'), asy
             userId: opponentId,
             challengeId: String(challengeId),
             event: NotificationEvent.MATCH_FOUND,
-            title: 'You were challenged!',
-            body: `${req.user?.username || 'Someone'} challenged you to "${title}" — tap to accept or decline.`,
+            title: '🎯 New P2P Challenge!',
+            body: `@${req.user?.username} challenged you to "${title}" — tap to accept or decline.`,
             channels: [NotificationChannel.PUSH, NotificationChannel.IN_APP],
             priority: NotificationPriority.HIGH,
-            data: { actionUrl: `/challenges/${challengeId}`, challengeId },
+            data: { actionUrl: `/challenges/${challengeId}`, challengeId, notificationType: 'challenge_received' },
           });
         } catch (err) {
           console.error('Failed to notify direct opponent', opponentId, err);

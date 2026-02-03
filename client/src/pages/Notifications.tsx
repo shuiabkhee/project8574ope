@@ -313,7 +313,15 @@ export default function Notifications() {
                               {notification.title}
                             </h3>
                             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">
-                              {notification.message}
+                              {notification.message?.split(/(@\w+)/g).map((part: string, idx: number) => 
+                                part.startsWith('@') ? (
+                                  <span key={idx} className="font-semibold text-blue-600 dark:text-blue-400 cursor-pointer hover:underline">
+                                    {part}
+                                  </span>
+                                ) : (
+                                  <span key={idx}>{part}</span>
+                                )
+                              )}
                             </p>
                             <p className="text-xs text-slate-500 dark:text-slate-500 mt-1 sm:mt-2">
                               {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
@@ -339,11 +347,30 @@ export default function Notifications() {
                         </div>
 
                         {/* Action buttons based on notification type */}
-                        {(notification.type === 'challenge' || notification.type === 'challenge_received' || notification.type === 'challenge_sent' || notification.type === 'challenge_accepted' || notification.type === 'challenge_active') && (
-                          <div className="mt-3 flex space-x-2">
+                        {(notification.type === 'challenge' || notification.type === 'challenge_received' || notification.type === 'challenge_sent' || notification.type === 'challenge_accepted' || notification.type === 'challenge_active' || notification.type === 'challenge.created' || notification.type === 'match.found' || notification.data?.notificationType === 'challenge_received') && (
+                          <div className="mt-2 flex gap-1">
                             <Button
-                              size="sm"
-                              className="bg-emerald-600 text-white hover:bg-emerald-700"
+                              size="xs"
+                              className="bg-emerald-600 text-white hover:bg-emerald-700 text-xs px-2 py-1 h-auto"
+                              onClick={() => {
+                                if (!notification.read) {
+                                  handleMarkAsRead(notification.id);
+                                }
+                                const challengeId = notification.data?.challengeId || notification.challengeId;
+                                if (challengeId) {
+                                  window.location.href = `/challenges/${challengeId}`;
+                                } else {
+                                  window.location.href = '/challenges';
+                                }
+                              }}
+                            >
+                              <i className="fas fa-check mr-0.5"></i>
+                              Accept
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              className="border-red-500 text-red-600 hover:bg-red-50 text-xs px-2 py-1 h-auto"
                               onClick={() => {
                                 if (!notification.read) {
                                   handleMarkAsRead(notification.id);
@@ -351,25 +378,9 @@ export default function Notifications() {
                                 window.location.href = '/challenges';
                               }}
                             >
-                              <i className="fas fa-eye mr-1"></i>
-                              View Challenges
+                              <i className="fas fa-times mr-0.5"></i>
+                              Decline
                             </Button>
-                            {notification.type === 'challenge_received' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-red-500 text-red-600 hover:bg-red-50"
-                                onClick={() => {
-                                  if (!notification.read) {
-                                    handleMarkAsRead(notification.id);
-                                  }
-                                  window.location.href = '/challenges';
-                                }}
-                              >
-                                <i className="fas fa-swords mr-1"></i>
-                                Respond
-                              </Button>
-                            )}
                           </div>
                         )}
 

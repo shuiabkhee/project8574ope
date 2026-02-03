@@ -51,9 +51,9 @@ class TelegramBot {
     if (challenge.challengeType === 'admin') {
       messageContent += `🏆 <b>NEW CHALLENGE</b>\n\n`;
     } else if (challenge.challengeType === 'direct') {
-      messageContent += `⚔️ <b>NEW P2P CHALLENGE</b>\n\n`;
+      messageContent += `🎯 <b>NEW P2P CHALLENGE</b>\n\n`;
     } else {
-      messageContent += `🔓 <b>NEW OPEN CHALLENGE</b>\n\n`;
+      messageContent += `� <b>NEW MARKET IS LIVE!</b>\n\n`;
     }
     
     messageContent += `━━━━━━━━━━━━━━━━━━━━━\n`;
@@ -71,7 +71,7 @@ class TelegramBot {
     
     // Show challenged user for direct challenges
     if (challenge.challengeType === 'direct' && challenge.creator?.username) {
-      messageContent += `🎯 <b>Challenging:</b> [Direct Challenge - Awaiting Response]\n`;
+      messageContent += `🎯 <b>New P2P Challenge:</b> [Awaiting Response]\n`;
     }
     
     // Show open challenge info
