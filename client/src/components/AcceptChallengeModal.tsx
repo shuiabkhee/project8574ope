@@ -202,18 +202,26 @@ export function AcceptChallengeModal({
         console.log('   Stake Amount (wei):', enrichedChallenge.stakeAmountWei);
         console.log('   Payment Token:', enrichedChallenge.paymentTokenAddress || '0x833589fCD6eDb6E08f4c7C32D4f71b3566dA8860');
 
-        const stakeWei = enrichedChallenge.stakeAmountWei?.toString() || String(enrichedChallenge.stakeAmount);
+        const stakeWei = enrichedChallenge.stakeAmountWei?.toString() || 
+                        enrichedChallenge.amount?.toString() || 
+                        enrichedChallenge.stakeAmount?.toString();
         console.log('   Converted stake to:', stakeWei);
 
-        if (!stakeWei || stakeWei === '0' || stakeWei === 'NaN') {
+        if (!stakeWei || stakeWei === '0' || stakeWei === 'NaN' || stakeWei === 'undefined') {
           throw new Error('Invalid stake amount. Please ensure the challenge has a valid stake.');
         }
 
+        console.log('   Challenge details for contract call:', {
+          id: Number(enrichedChallenge.id),
+          stakeAmount: stakeWei,
+          paymentToken: enrichedChallenge.paymentTokenAddress || '0x833589fCD6eDb6E08f4c7C32D4f71b3566dA8860'
+        });
+
         const result = await acceptP2PChallenge({
-          challengeId: enrichedChallenge.id,
+          challengeId: Number(enrichedChallenge.id),
           stakeAmount: stakeWei,
           paymentToken: enrichedChallenge.paymentTokenAddress || '0x833589fCD6eDb6E08f4c7C32D4f71b3566dA8860',
-          pointsReward: ''
+          pointsReward: '0'
         });
 
         console.log('✅ Transaction successful:', result);

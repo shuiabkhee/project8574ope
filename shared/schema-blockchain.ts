@@ -5,6 +5,7 @@
  * Run migrations after Phase 2 is complete
  */
 
+import { challenges } from "./schema";
 import {
   pgTable,
   text,
@@ -341,10 +342,7 @@ export const userWalletAddresses = pgTable(
 export type UserWalletAddress = typeof userWalletAddresses.$inferSelect;
 export type InsertUserWalletAddress = typeof userWalletAddresses.$inferInsert;
 
-// ============================================================================
-// RELATIONS
-// ============================================================================
-
+// Relations
 export const userPointsLedgersRelations = relations(userPointsLedgers, ({ many }) => ({
   pointsTransactions: many(pointsTransactions),
 }));
@@ -357,9 +355,9 @@ export const pointsTransactionsRelations = relations(pointsTransactions, ({ one 
 }));
 
 export const blockchainTransactionsRelations = relations(blockchainTransactions, ({ one }) => ({
-  challenge: one(() => ({} as any), {
+  challenge: one(challenges, {
     fields: [blockchainTransactions.challengeId],
-    references: [(() => ({} as any)).id],
+    references: [challenges.id],
   }),
 }));
 

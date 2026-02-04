@@ -338,10 +338,9 @@ export function useBlockchainChallenge() {
 
       if (wallet.walletClientType === 'privy') {
         // Embedded Privy wallet
-        provider = new ethers.BrowserProvider((wallet as any).provider as any);
+        provider = new ethers.BrowserProvider((wallet as any).getEthereumProvider?.() || (wallet as any).provider as any);
       } else {
         // External wallet (Rainbow, MetaMask, etc.)
-        // For external wallets, we need to get the provider differently
         if ((window as any).ethereum) {
           provider = new ethers.BrowserProvider((window as any).ethereum);
         } else {
@@ -463,29 +462,14 @@ export function useBlockchainChallenge() {
       return await retryTransaction(async () => {
         console.log(`💳 Awaiting user to sign transaction...`);
 
-        // For native ETH, send the stake amount as msg.value. Only pass overrides when needed.
-        const isNativeETH = checksummedToken === '0x0000000000000000000000000000000000000000';
-        console.log(`💰 Is native ETH: ${isNativeETH}, Stake: ${stakeWei.toString()}`);
-
+        // For native ETH, send the stake amount as msg.value.
+        const isNativeETH = params.paymentToken === '0x0000000000000000000000000000000000000000';
+        
         let tx;
         if (isNativeETH) {
-          console.log(`✅ Sending ${stakeWei.toString()} wei as transaction value`);
-          tx = await contract.createP2PChallenge(
-            checksummedOpponent,
-            checksummedToken,
-            stakeWei,
-            pointsWei,
-            params.metadataURI,
-            { value: stakeWei }
-          );
+          tx = await contract.acceptP2PChallenge(params.challengeId, { value: stakeWei });
         } else {
-          tx = await contract.createP2PChallenge(
-            checksummedOpponent,
-            checksummedToken,
-            stakeWei,
-            pointsWei,
-            params.metadataURI
-          );
+          tx = await contract.acceptP2PChallenge(params.challengeId);
         }
 
         console.log(`⏳ Transaction submitted: ${tx.hash}`);
@@ -536,23 +520,13 @@ export function useBlockchainChallenge() {
       // In Privy v3, prioritize the connected wallet from user.wallet
       let wallet = null;
 
-      // First try user.wallet (for connected external wallets like Rainbow, MetaMask, etc.)
       if (user?.wallet) {
         console.log('🔍 Using connected external wallet from user.wallet');
         wallet = user.wallet;
-      }
-      // Fallback to wallets array (for embedded wallets)
-      else if (wallets && wallets.length > 0) {
+      } else if (wallets && wallets.length > 0) {
         console.log('🔍 Using wallets array (embedded wallets)');
         const embeddedWallet = (wallets as any[]).find((w: any) => w.walletClientType === 'privy');
-        if (embeddedWallet) {
-          wallet = embeddedWallet;
-          console.log('🔍 Found embedded wallet:', wallet);
-        } else {
-          // Use any available wallet
-          wallet = wallets[0];
-          console.log('🔍 Using first available wallet:', wallet);
-        }
+        wallet = embeddedWallet || wallets[0];
       }
 
       if (!wallet) {
@@ -566,10 +540,9 @@ export function useBlockchainChallenge() {
 
       if (wallet.walletClientType === 'privy') {
         // Embedded Privy wallet
-        provider = new ethers.BrowserProvider((wallet as any).provider as any);
+        provider = new ethers.BrowserProvider((wallet as any).getEthereumProvider?.() || (wallet as any).provider as any);
       } else {
         // External wallet (Rainbow, MetaMask, etc.)
-        // For external wallets, we need to get the provider differently
         if ((window as any).ethereum) {
           provider = new ethers.BrowserProvider((window as any).ethereum);
         } else {

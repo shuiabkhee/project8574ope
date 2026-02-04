@@ -1,3 +1,4 @@
+import * as schema from "@shared/schema";
 import {
   users,
   events,
@@ -8,7 +9,6 @@ import {
   type Event,
   type InsertEvent,
 } from "@shared/schema";
-import { userWalletAddresses } from "@shared/schema-blockchain";
 import { db } from "./db";
 import { eq, desc, gte, lte } from "drizzle-orm";
 import session from "express-session";
@@ -67,8 +67,17 @@ export class DatabaseStorage implements IStorage {
     // Get all users with their wallet addresses
     const allUsers = await this.db.select().from(users);
     
-    // Get all wallet addresses
-    const wallets = await this.db.select().from(userWalletAddresses);
+    // Check if userWalletAddresses exists in schema before querying
+    let wallets: any[] = [];
+    try {
+      // @ts-ignore - might not exist yet
+      if (schema.userWalletAddresses) {
+        // @ts-ignore
+        wallets = await this.db.select().from(schema.userWalletAddresses);
+      }
+    } catch (e) {
+      console.warn('⚠️ user_wallet_addresses table not found, falling back to users.walletAddress');
+    }
     
     // Create a map of userId -> wallets array
     const walletMap = wallets.reduce((acc: any, wallet: any) => {
@@ -87,12 +96,23 @@ export class DatabaseStorage implements IStorage {
     }, {});
     
     // Merge users with their wallets
-    return allUsers.map((user: User) => ({
-      ...user,
-      wallets: walletMap[user.id] || [],
-      // Add primaryWalletAddress for easy searching
-      primaryWalletAddress: (walletMap[user.id] || []).find((w: any) => w.isPrimary)?.walletAddress || null,
-    }));
+    return allUsers.map((user: User) => {
+      const userWallets = walletMap[user.id] || [];
+      // Fallback to walletAddress column if no entries in userWalletAddresses
+      if (userWallets.length === 0 && user.walletAddress) {
+        userWallets.push({
+          walletAddress: user.walletAddress,
+          isPrimary: true,
+          isVerified: true
+        });
+      }
+      
+      return {
+        ...user,
+        wallets: userWallets,
+        primaryWalletAddress: userWallets.find((w: any) => w.isPrimary)?.walletAddress || user.walletAddress || null,
+      };
+    });
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
