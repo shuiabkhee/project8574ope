@@ -369,6 +369,7 @@ export default function Notifications() {
                                   amount: notification.data?.totalPool,
                                   totalPool: notification.data?.totalPool,
                                   challengerUser: notification.data?.challengerUser,
+                                  isOpenChallenge: notification.data?.type === 'open' || notification.data?.challengeType === 'open',
                                   ...notification.data,
                                 };
                                 console.log('📬 Challenge from notification:', {
@@ -767,6 +768,7 @@ export default function Notifications() {
           setSelectedChallengeToAccept(null);
         }}
         challenge={selectedChallengeToAccept}
+        isOpenChallenge={selectedChallengeToAccept?.isOpenChallenge}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["/api/challenges"] });
           queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });

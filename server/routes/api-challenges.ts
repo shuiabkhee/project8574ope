@@ -1471,6 +1471,7 @@ router.post('/:challengeId/accept-open', PrivyAuthMiddleware, async (req: Reques
         acceptorName: acceptorName,
         // `challenge.amount` is the total pool (both sides). Send per-side stake here.
         stakeAmount: (challenge.amount / 2),
+        challengeType: 'open',
       },
       channels: [NotificationChannel.PUSHER, NotificationChannel.FIREBASE],
       priority: NotificationPriority.HIGH,
@@ -1492,6 +1493,7 @@ router.post('/:challengeId/accept-open', PrivyAuthMiddleware, async (req: Reques
         // `challenge.amount` is total pool; provide per-side stake and explicit totalPool
         stakeAmount: (challenge.amount / 2),
         totalPool: challenge.amount,
+        challengeType: 'open',
       },
       channels: [NotificationChannel.PUSHER, NotificationChannel.FIREBASE],
       priority: NotificationPriority.HIGH,
@@ -2001,6 +2003,7 @@ router.post('/:id/lock-creator-stake', PrivyAuthMiddleware, async (req: Request,
         challengeTitle: challenge.title,
         creatorId: userId,
         creatorName: creatorName,
+        challengeType: 'p2p',
       },
       channels: [NotificationChannel.PUSHER, NotificationChannel.FIREBASE],
       priority: NotificationPriority.HIGH,

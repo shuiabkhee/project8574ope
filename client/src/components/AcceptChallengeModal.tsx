@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
+import { usePrivy } from '@privy-io/react-auth';
 import { useBlockchainChallenge } from '@/hooks/useBlockchainChallenge';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -52,11 +53,20 @@ export function AcceptChallengeModal({
   isOpenChallenge = false,
 }: AcceptChallengeModalProps) {
   const [, setLocation] = useLocation();
+  const { user, login, ready } = usePrivy();
   const { acceptP2PChallenge, isRetrying } = useBlockchainChallenge();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // DEBUG: Log the modal props
+  console.log('📋 AcceptChallengeModal opened with:', {
+    isOpen,
+    isOpenChallenge,
+    challengeId: challenge?.id,
+    challengeType: challenge?.type || challenge?.challengeType || 'unknown',
+  });
 
   // Fetch full challenge details if notification data is incomplete
   const { data: fullChallenge } = useQuery({
@@ -137,13 +147,37 @@ export function AcceptChallengeModal({
       setError(null);
       setTransactionHash(null);
 
+      // For P2P Challenges: Check wallet connection first
+      if (!isOpenChallenge) {
+        console.log('🔗 P2P Challenge - Checking wallet connection...');
+        console.log('   Privy ready:', ready);
+        console.log('   User:', user);
+
+        if (!ready) {
+          throw new Error('Privy is not ready. Please refresh the page.');
+        }
+
+        if (!user) {
+          console.log('⚠️ No wallet connected - prompting user to login...');
+          toast({
+            title: '🔐 Connect Wallet',
+            description: 'Please connect your wallet to stake in this challenge.',
+          });
+          await login();
+          return;
+        }
+
+        console.log('✅ Wallet connected - proceeding with blockchain transaction');
+      }
+
       toast({
         title: 'Accepting Challenge',
-        description: 'Preparing transaction...',
+        description: isOpenChallenge ? 'Locking stake in escrow...' : 'Connecting to blockchain...',
       });
 
       // For Open Challenges, call accept-open endpoint instead
       if (isOpenChallenge) {
+        console.log('📡 Open Challenge - Calling API endpoint...');
         const result = await apiRequest('POST', `/api/challenges/${enrichedChallenge.id}/accept-open`, {
           side: opponentSide,
         });
@@ -162,19 +196,32 @@ export function AcceptChallengeModal({
           onClose();
         }, 2000);
       } else {
-        // For Direct Challenges, use the existing blockchain flow
+        // For Direct P2P Challenges, use the blockchain flow
+        console.log('⛓️ P2P Challenge - Initiating blockchain transaction...');
+        console.log('   Challenge ID:', enrichedChallenge.id);
+        console.log('   Stake Amount (wei):', enrichedChallenge.stakeAmountWei);
+        console.log('   Payment Token:', enrichedChallenge.paymentTokenAddress || '0x833589fCD6eDb6E08f4c7C32D4f71b3566dA8860');
+
+        const stakeWei = enrichedChallenge.stakeAmountWei?.toString() || String(enrichedChallenge.stakeAmount);
+        console.log('   Converted stake to:', stakeWei);
+
+        if (!stakeWei || stakeWei === '0' || stakeWei === 'NaN') {
+          throw new Error('Invalid stake amount. Please ensure the challenge has a valid stake.');
+        }
+
         const result = await acceptP2PChallenge({
           challengeId: enrichedChallenge.id,
-          stakeAmount: enrichedChallenge.stakeAmountWei?.toString() || String(enrichedChallenge.stakeAmount),
+          stakeAmount: stakeWei,
           paymentToken: enrichedChallenge.paymentTokenAddress || '0x833589fCD6eDb6E08f4c7C32D4f71b3566dA8860',
           pointsReward: ''
         });
 
+        console.log('✅ Transaction successful:', result);
         setTransactionHash(result.transactionHash);
 
         toast({
           title: '✅ Challenge Accepted!',
-          description: `Transaction: ${result.transactionHash?.slice(0, 10)}...`,
+          description: `Transaction confirmed: ${result.transactionHash?.slice(0, 10)}...`,
         });
 
         setTimeout(() => {
@@ -185,7 +232,7 @@ export function AcceptChallengeModal({
         }, 2000);
       }
     } catch (err: any) {
-      console.error('Failed to accept challenge:', err);
+      console.error('❌ Failed to accept challenge:', err);
       const errorMsg = err.message?.includes('user rejected')
         ? 'You cancelled the transaction'
         : err.message || 'Failed to accept challenge';
@@ -324,30 +371,16 @@ export function AcceptChallengeModal({
           {/* Actions */}
           <div className="flex gap-2 pt-1">
             <Button
-              onClick={() => {
-                setError(null);
-                onClose();
-              }}
-              disabled={isSubmitting || isRetrying || !!transactionHash}
-              className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 text-xs h-8"
-            >
-              Cancel
-            </Button>
-            <Button
               onClick={handleAcceptChallenge}
               disabled={isSubmitting || isRetrying || !!transactionHash}
-              className="flex-1 bg-[#ccff00] text-black hover:bg-[#b8e600] disabled:opacity-50 text-xs h-8 font-semibold"
+              className="w-full bg-[#ccff00] text-black hover:bg-[#b8e600] disabled:opacity-50 text-xs h-8 font-semibold"
             >
               {isSubmitting || isRetrying ? (
                 <>
                   <Loader className="w-3 h-3 mr-1 animate-spin" />
                   Staking...
                 </>
-              ) : transactionHash ? (
-                '✓ Staked'
-              ) : (
-                'Stake'
-              )}
+              ) : transactionHash ? '✓ Staked' : 'Stake'}
             </Button>
           </div>
         </div>
