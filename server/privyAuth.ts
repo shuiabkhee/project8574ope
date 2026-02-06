@@ -147,6 +147,31 @@ async function upsertPrivyUser(verifiedClaims: any) {
 }
 
 export async function PrivyAuthMiddleware(req: any, res: any, next: any) {
+  // Development shortcut: allow setting a dev user via header to bypass Privy
+  try {
+    const devUser = req.headers['x-dev-user-id'] || req.headers['x-dev-user'];
+    if (process.env.NODE_ENV !== 'production' && devUser) {
+      console.log('⚡ Dev auth bypass enabled via x-dev-user-id header');
+      const { storage } = await import('./storage');
+      const userId = String(devUser);
+      let dbUser = await storage.getUser(userId);
+      if (!dbUser) {
+        dbUser = await storage.upsertUser({ id: userId, email: `${userId}@dev.local`, password: 'dev', username: userId, firstName: 'Dev' });
+      }
+      req.user = {
+        id: dbUser.id,
+        email: dbUser.email,
+        firstName: dbUser.firstName,
+        lastName: dbUser.lastName,
+        username: dbUser.username,
+        isAdmin: dbUser.isAdmin || false,
+        claims: { sub: dbUser.id }
+      };
+      return next();
+    }
+  } catch (e) {
+    console.warn('Dev auth bypass failed:', e);
+  }
   const authHeader = req.headers.authorization;
   const url = req.originalUrl || req.url;
   console.log(`\n🔐 PrivyAuthMiddleware called for ${req.method} ${url}`);

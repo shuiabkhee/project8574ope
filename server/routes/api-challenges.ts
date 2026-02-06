@@ -327,11 +327,15 @@ router.post('/create-p2p', PrivyAuthMiddleware, upload.single('coverImage'), asy
 
     console.log(`\n📨 POST /api/challenges/create-p2p`);
     console.log(`  ✓ Auth successful - userId: ${userId?.substring(0, 20)}...`);
+    const safeTxPreview = transactionHash
+      ? (typeof transactionHash === 'string' ? transactionHash.substring(0, 10) + '...' : JSON.stringify(transactionHash).slice(0, 10) + '...')
+      : 'NONE';
+
     console.log(`  ✓ Request received with:`);
     console.log(`    - title: ${title}`);
     console.log(`    - stakeAmount: ${stakeAmount}`);
     console.log(`    - paymentToken: ${paymentToken}`);
-    console.log(`    - transactionHash: ${transactionHash?.substring(0, 10)}...`);
+    console.log(`    - transactionHash: ${safeTxPreview}`);
     console.log(`    - challengeType: ${challengeType}`);
     console.log(`    - has coverImage file: ${!!req.file}`);
     if (req.file) {

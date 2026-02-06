@@ -87,6 +87,24 @@ function ChallengeCardSkeleton() {
 
 export default function Challenges() {
   const { user, getAccessToken } = useAuth();
+  // Dev-time Vite env checks
+  useEffect(() => {
+    try {
+      if ((import.meta as any).env?.DEV) {
+        const required = [
+          'VITE_BASE_TESTNET_RPC',
+          'VITE_CHALLENGE_FACTORY_ADDRESS',
+          'VITE_CHALLENGE_ESCROW_ADDRESS',
+        ];
+        const missing = required.filter((k) => !(import.meta as any).env?.[k]);
+        if (missing.length) {
+          console.warn('[DEV] Missing Vite env vars:', missing.join(', '));
+        }
+      }
+    } catch (e) {
+      // swallow in production
+    }
+  }, []);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
@@ -368,9 +386,8 @@ export default function Challenges() {
         }
       }
 
-      // Get the Privy auth token
-      const token = await getAccessToken();
-        requestBody.append('transactionHash', onchainTxHash || '');
+      // Update transaction hash then get the Privy auth token
+      requestBody.append('transactionHash', onchainTxHash || '');
       const token = await getAccessToken();
       
       console.log(`\n🔐 About to call /api/challenges/create-p2p`);
@@ -382,7 +399,15 @@ export default function Challenges() {
         headers['Authorization'] = `Bearer ${token}`;
         console.log(`   ✓ Authorization header will be sent`);
       } else {
-        console.error(`   ❌ NO TOKEN - Request will likely fail with 401`);
+        // If running in development and a dev user id is provided via Vite env,
+        // send the dev-bypass header so the local server accepts the request.
+        const devUser = (import.meta as any).env?.VITE_DEV_USER_ID;
+        if ((import.meta as any).env?.DEV && devUser) {
+          headers['x-dev-user-id'] = String(devUser);
+          console.log(`   ✓ Sending dev bypass header x-dev-user-id=${String(devUser).slice(0,8)}...`);
+        } else {
+          console.error(`   ❌ NO TOKEN - Request will likely fail with 401`);
+        }
       }
 
       console.log(`   Sending request body with:`);
