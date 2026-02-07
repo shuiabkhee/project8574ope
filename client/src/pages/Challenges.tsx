@@ -375,7 +375,7 @@ export default function Challenges() {
             participantAddress: '0x0000000000000000000000000000000000000000',
             stakeAmountWei: stakeInWei,
             paymentToken: selectedTokenAddress,
-            pointsReward: '0',
+            pointsReward: '100',
             metadataURI: 'ipfs://bafytest',
           });
           onchainTxHash = tx.transactionHash;

@@ -10,7 +10,11 @@ import {
   type InsertEvent,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, gte, lte } from "drizzle-orm";
+import { eq, desc, gte, lte, sql } from "drizzle-orm";
+import {
+  recordPointsTransaction,
+  updateUserPointsBalance,
+} from "./blockchain/db-utils";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
@@ -24,11 +28,17 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User>;
   updateUserProfile(id: string, updates: Partial<User>): Promise<User>;
+  updateUserPoints(id: string, pointsToAdd: number): Promise<void>;
 
   // Event operations
   getEvents(limit?: number): Promise<Event[]>;
   getEventById(id: number): Promise<Event | undefined>;
   createEvent(event: InsertEvent): Promise<Event>;
+
+  // Referral operations
+  createReferral(data: any): Promise<void>;
+  createNotification(data: any): Promise<void>;
+  createTransaction(data: any): Promise<void>;
 
   sessionStore: any;
 }
@@ -268,10 +278,10 @@ export class DatabaseStorage implements IStorage {
     // Mark claimed
     await this.db.update(dailyLogins).set({ claimed: true }).where(eq(dailyLogins.id, rec.id));
 
-    // Update user's points balance
+    // Update user's points balance in legacy column (for backwards compatibility)
     await this.db.execute(sql`UPDATE users SET points = points + ${rec.pointsEarned} WHERE id = ${userId}`);
 
-    // Create transaction record
+    // Create transaction record in legacy table (for backwards compatibility)
     await this.db.insert(transactions).values({
       userId,
       type: 'daily_login',
@@ -281,7 +291,75 @@ export class DatabaseStorage implements IStorage {
       createdAt: new Date(),
     });
 
+    // ✅ NEW: Record in the new blockchain points ledger system
+    const pointsInWei = BigInt(Math.floor((rec.pointsEarned || 0) * 1e18));
+    await recordPointsTransaction({
+      userId,
+      challengeId: null,
+      transactionType: 'admin_claim_weekly',
+      amount: pointsInWei,
+      reason: `Daily login reward - streak ${rec.streak}`,
+      blockchainTxHash: null,
+      createdAt: new Date(),
+    });
+
+    // ✅ NEW: Sync the userPointsLedgers table with the updated balance
+    await updateUserPointsBalance(userId);
+
     return { points: rec.pointsEarned, streak: rec.streak };
+  }
+
+  /**
+   * Award points to a user and update both legacy and new ledger systems
+   */
+  async updateUserPoints(userId: string, pointsToAdd: number): Promise<void> {
+    // Update legacy users.points column for backwards compatibility
+    await this.db.execute(sql`UPDATE users SET points = points + ${pointsToAdd} WHERE id = ${userId}`);
+
+    // ✅ NEW: Record in the new blockchain points ledger system
+    const pointsInWei = BigInt(Math.floor(pointsToAdd * 1e18));
+    await recordPointsTransaction({
+      userId,
+      challengeId: null,
+      transactionType: 'transferred_user',
+      amount: pointsInWei,
+      reason: 'Points awarded',
+      blockchainTxHash: null,
+      createdAt: new Date(),
+    });
+
+    // ✅ NEW: Sync the userPointsLedgers table with the updated balance
+    await updateUserPointsBalance(userId);
+  }
+
+  /**
+   * Create a referral record (placeholder for now)
+   */
+  async createReferral(data: any): Promise<void> {
+    // Referral logic - can be extended later
+    console.log('Referral created:', data);
+  }
+
+  /**
+   * Create a notification record
+   */
+  async createNotification(data: any): Promise<void> {
+    // Notification logic - can be extended later
+    console.log('Notification created:', data);
+  }
+
+  /**
+   * Create a transaction record (legacy)
+   */
+  async createTransaction(data: any): Promise<void> {
+    await this.db.insert(transactions).values({
+      userId: data.userId,
+      type: data.type,
+      amount: data.amount,
+      description: data.description,
+      status: data.status || 'completed',
+      createdAt: new Date(),
+    });
   }
 }
 

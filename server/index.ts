@@ -11,6 +11,7 @@ import { registerRoutes } from "./routes";
 import { startExpiryScheduler } from './jobs/expireChallenges';
 import { startChallengeExpiryReminderJob } from './jobs/challengeExpiryReminders';
 import { startVotingCountdownReminderJob } from './jobs/votingCountdownReminders';
+import { syncExistingPoints } from './migrations/sync-existing-points';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,8 +78,15 @@ app.use((_req, res, next) => {
       host: "0.0.0.0",
       reusePort: true
     },
-    () => {
+    async () => {
       console.log(`✅ Server running on port ${port}`);
+      
+      // Sync existing points in the background (one-time migration)
+      try {
+        await syncExistingPoints();
+      } catch (err) {
+        console.error('⚠️ Points sync failed (non-blocking):', err);
+      }
     }
   );
 })();

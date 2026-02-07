@@ -33,6 +33,7 @@ import {
   recordContractDeployment,
   addUserWallet,
   getUserPrimaryWallet as dbGetUserPrimaryWallet,
+  updateUserPointsBalance,
 } from '../blockchain/db-utils';
 import { calculateCreationPoints, calculateParticipationPoints } from '../utils/points-calculator';
 import { notifyPointsEarnedParticipation, notifyPointsEarnedCreation } from '../utils/bantahPointsNotifications';
@@ -471,6 +472,9 @@ router.post('/create-p2p', PrivyAuthMiddleware, upload.single('coverImage'), asy
       
       // Update user's actual points balance
       await db.execute(sql`UPDATE users SET points = points + ${creationPoints} WHERE id = ${userId}`);
+      
+      // Sync the userPointsLedgers table with the updated balance
+      await updateUserPointsBalance(userId);
       
       // Create transaction record for points earned
       await db.insert(transactions).values({
@@ -968,6 +972,10 @@ router.post('/:id/join', PrivyAuthMiddleware, async (req: Request, res: Response
         reason: `Participated in challenge #${challengeId}`,
         blockchainTxHash: txResult.transactionHash,
       });
+
+      // Sync the userPointsLedgers table with the updated balance
+      await updateUserPointsBalance(userId);
+
       console.log(`✅ Awarded ${participationPoints} points to user ${userId} for joining challenge`);
       
       // Send notification
@@ -1519,6 +1527,9 @@ router.post('/:challengeId/accept-open', PrivyAuthMiddleware, async (req: Reques
 
     // Update legacy points column for leaderboard sync
     await db.execute(sql`UPDATE users SET points = points + ${joiningPoints} WHERE id = ${userId}`);
+
+    // Sync the userPointsLedgers table with the updated balance
+    await updateUserPointsBalance(userId).catch(err => console.error('Failed to sync points ledger:', err));
 
     console.log(`✅ Notifications sent successfully`);
 

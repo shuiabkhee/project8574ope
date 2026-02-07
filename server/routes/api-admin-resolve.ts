@@ -20,6 +20,7 @@ import {
   logBlockchainTransaction,
   logAdminSignature,
   updateSignatureVerification,
+  updateUserPointsBalance,
 } from '../blockchain/db-utils';
 import { notifyPointsEarnedWin } from '../utils/bantahPointsNotifications';
 import { db } from '../db';
@@ -135,6 +136,9 @@ router.post('/:id/result', adminAuth, async (req: Request, res: Response) => {
         reason: reason || `Challenge ${challengeId} victory`,
         blockchainTxHash: txResult.transactionHash,
       });
+
+      // Sync the userPointsLedgers table with the updated balance
+      await updateUserPointsBalance(winner);
 
       // Send win notification
       await notifyPointsEarnedWin(
@@ -300,6 +304,9 @@ router.post('/resolve', adminAuth, async (req: Request, res: Response) => {
       blockchainTxHash: signResult.transactionHash,
     });
 
+    // Sync the userPointsLedgers table with the updated balance
+    await updateUserPointsBalance(winner);
+
     // Send win notification
     await notifyPointsEarnedWin(
       winner,
@@ -417,6 +424,9 @@ router.post('/batch-resolve', adminAuth, async (req: Request, res: Response) => 
           amount: BigInt(pointsAwarded),
           blockchainTxHash: signResult.transactionHash,
         });
+
+        // Sync the userPointsLedgers table with the updated balance
+        await updateUserPointsBalance(winner);
 
         results.push({
           challengeId,
@@ -718,6 +728,9 @@ router.post('/:id/resolve-dispute', adminAuth, async (req: Request, res: Respons
         reason: `Dispute resolution: ${decision}`,
         blockchainTxHash: txResult.transactionHash,
       });
+
+      // Sync the userPointsLedgers table with the updated balance
+      await updateUserPointsBalance(winner);
 
       // Send win notification
       await notifyPointsEarnedWin(

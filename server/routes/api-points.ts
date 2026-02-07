@@ -38,6 +38,7 @@ const router = Router();
 router.get('/balance/:userId', PrivyAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
+    console.log(`\n📊 Fetching points balance for user: ${userId}`);
 
     // Ensure ledger exists
     await ensureUserPointsLedger(userId);
@@ -49,14 +50,30 @@ router.get('/balance/:userId', PrivyAuthMiddleware, async (req: Request, res: Re
       .where(eq(userPointsLedgers.userId, userId))
       .limit(1);
 
+    console.log(`   Balance from ledger: ${balance.toString()}`);
+    console.log(`   Ledger data:`, ledger.length > 0 ? JSON.stringify(ledger[0], null, 2) : 'NO LEDGER');
+
+    // Debug: Check transaction history
+    const txCount = await db
+      .select({ count: sql`COUNT(*)` })
+      .from(pointsTransactions)
+      .where(eq(pointsTransactions.userId, userId));
+    console.log(`   Transaction count: ${(txCount[0] as any)?.count || 0}`);
+
     res.json({
       userId,
       balance: balance.toString(),
       balanceFormatted: (Number(balance) / 1e18).toFixed(2),
       lastClaimedAt: ledger.length > 0 ? ledger[0].lastClaimedAt : null,
+      _debug: {
+        ledgerExists: ledger.length > 0,
+        transactionCount: (txCount[0] as any)?.count || 0,
+        ledgerBalance: ledger.length > 0 ? ledger[0].pointsBalance?.toString() : null,
+      },
       ...(ledger.length > 0 ? ledger[0] : {}),
     });
   } catch (error: any) {
+    console.error('Error fetching points balance:', error);
     res.status(500).json({
       error: 'Failed to get points balance',
       message: error.message,
@@ -122,6 +139,10 @@ router.post('/transfer', PrivyAuthMiddleware, async (req: Request, res: Response
       amount: amountBigInt,
       reason: `Transfer from ${userId}`,
     });
+
+    // Update ledgers for both users
+    await updateUserPointsBalance(userId);
+    await updateUserPointsBalance(recipientId);
 
     console.log(`✅ Points transferred: ${amount} BPTS`);
 

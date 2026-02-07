@@ -851,10 +851,49 @@ export async function stakeAndCreateP2PChallengeClient(params: {
   // This mirrors logic in create/accept functions but keeps it simple for callers.
   const { participantAddress, stakeAmountWei, paymentToken, pointsReward, metadataURI } = params;
 
+  console.log('🔗 [stakeAndCreateP2PChallengeClient] Starting on-chain stake creation...');
+  
   // Use window.ethereum or throw if not available — callers should ensure wallet connected
   if (!(window as any).ethereum) throw new Error('No wallet provider available');
   const provider = new ethers.BrowserProvider((window as any).ethereum as any);
   const signer = await provider.getSigner();
+  
+  // Get the current chain ID to determine the correct factory address
+  const network = await provider.getNetwork();
+  const chainId = Number(network.chainId);
+  console.log(`📡 Detected chain ID: ${chainId}`);
+  
+  // Determine factory address based on chain
+  let FACTORY_ADDRESS = '';
+  const baseFactoryEnv = import.meta.env.VITE_BASE_CHALLENGE_FACTORY_ADDRESS;
+  const polygonFactoryEnv = import.meta.env.VITE_POLYGON_CHALLENGE_FACTORY_ADDRESS;
+  const arbitrumFactoryEnv = import.meta.env.VITE_ARBITRUM_CHALLENGE_FACTORY_ADDRESS;
+  const defaultFactoryEnv = import.meta.env.VITE_CHALLENGE_FACTORY_ADDRESS;
+  
+  console.log(`📋 Environment variables loaded:`, { baseFactoryEnv, polygonFactoryEnv, arbitrumFactoryEnv, defaultFactoryEnv });
+  
+  if (chainId === 84532) { // Base Sepolia
+    FACTORY_ADDRESS = baseFactoryEnv || defaultFactoryEnv || '';
+  } else if (chainId === 8453) { // Base Mainnet
+    FACTORY_ADDRESS = baseFactoryEnv || defaultFactoryEnv || '';
+  } else if (chainId === 80002) { // Polygon Amoy
+    FACTORY_ADDRESS = polygonFactoryEnv || '';
+  } else if (chainId === 137) { // Polygon Mainnet
+    FACTORY_ADDRESS = polygonFactoryEnv || '';
+  } else if (chainId === 421614) { // Arbitrum Sepolia
+    FACTORY_ADDRESS = arbitrumFactoryEnv || '';
+  } else if (chainId === 42161) { // Arbitrum Mainnet
+    FACTORY_ADDRESS = arbitrumFactoryEnv || '';
+  } else {
+    FACTORY_ADDRESS = defaultFactoryEnv || '';
+  }
+  
+  console.log(`✅ Selected FACTORY_ADDRESS: ${FACTORY_ADDRESS}`);
+  
+  if (!FACTORY_ADDRESS || FACTORY_ADDRESS === 'null' || FACTORY_ADDRESS === 'undefined') {
+    throw new Error(`Invalid contract address for chain ${chainId}. Please check your environment variables.`);
+  }
+  
   const factory = new ethers.Contract(
     FACTORY_ADDRESS,
     CHALLENGE_FACTORY_ABI,

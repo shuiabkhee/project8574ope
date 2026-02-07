@@ -15,6 +15,10 @@ import {
   getChallenge,
   getChallengeParticipants 
 } from '../blockchain/helpers';
+import {
+  recordPointsTransaction,
+  updateUserPointsBalance,
+} from '../blockchain/db-utils';
 import { db } from '../db';
 import { challenges, users, transactions } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
@@ -154,11 +158,12 @@ router.post(
 
           // Award points to winner
           try {
+            // ✅ Update legacy points column for backwards compatibility
             await db.execute(
               `UPDATE users SET points = points + ${pointsAwarded} WHERE id = '${winnerId}'`
             );
 
-            // Create transaction record for the win
+            // ✅ Create transaction record for the win (legacy)
             await db.insert(transactions).values({
               userId: winnerId,
               type: 'challenge_won',
@@ -167,6 +172,21 @@ router.post(
               status: 'completed',
               createdAt: new Date(),
             });
+
+            // ✅ NEW: Record in the new blockchain points ledger system
+            const pointsInWei = BigInt(Math.floor(pointsAwarded * 1e18));
+            await recordPointsTransaction({
+              userId: winnerId,
+              challengeId: challengeId,
+              transactionType: 'earned_challenge',
+              amount: pointsInWei,
+              reason: `Won challenge "${challengeTitle}" against @${loserName}`,
+              blockchainTxHash: txResult.transactionHash,
+              createdAt: new Date(),
+            });
+
+            // ✅ NEW: Sync the userPointsLedgers table with the updated balance
+            await updateUserPointsBalance(winnerId);
 
             console.log(`💰 Awarded ${pointsAwarded} points to winner ${winnerId}`);
           } catch (err) {
